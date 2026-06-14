@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LinkVault — Admin</title>
+  <link rel="stylesheet" href="/css/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a class="brand" href="/"><span class="brand-icon">🔗</span><span class="brand-text">LinkVault</span><span class="brand-badge">Admin</span></a>
+    <div class="nav-actions" style="margin-left:auto">
+      <a href="/" class="nav-btn">← Browse</a>
+      <button class="nav-btn" id="theme-toggle">🌙</button>
+      <span class="nav-user"><div class="avatar" id="nav-avatar">A</div><span id="nav-username"></span></span>
+      <button class="nav-btn" id="nav-logout">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem">
+    <div>
+      <h1 style="font-size:1.4rem;font-weight:800">Admin Dashboard</h1>
+      <p style="color:var(--muted);font-size:.85rem;margin-top:.2rem">Manage link approvals and monitor activity</p>
+    </div>
+    <button class="btn-primary" style="width:auto;padding:.5rem 1.1rem" onclick="loadStats();loadQueue(1)">↻ Refresh</button>
+  </div>
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-value" id="stat-pending">—</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-approved">—</div><div class="stat-label">Approved</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-rejected">—</div><div class="stat-label">Rejected</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-users">—</div><div class="stat-label">Users</div></div>
+    <div class="stat-card"><div class="stat-value" id="stat-votes">—</div><div class="stat-label">Total Votes</div></div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <h2 style="font-size:1rem;font-weight:700">Approval Queue</h2>
+    <span style="font-size:.82rem;color:var(--muted)" id="queue-count"></span>
+  </div>
+  <div id="queue-container"><div class="loading-state"><div class="spinner"></div><span>Loading…</span></div></div>
+  <div class="pagination" id="queue-pagination"></div>
+</div>
+
+<div id="toast"></div>
+<script src="/js/admin.js"></script>
+</body>
+</html>

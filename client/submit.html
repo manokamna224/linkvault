@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LinkVault — Submit a Link</title>
+  <link rel="stylesheet" href="/css/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a class="brand" href="/"><span class="brand-icon">🔗</span><span class="brand-text">LinkVault</span></a>
+    <div class="nav-actions" style="margin-left:auto">
+      <a href="/" class="nav-btn">← Browse</a>
+      <button class="nav-btn" id="theme-toggle">🌙</button>
+      <span class="nav-user" id="nav-user" style="display:none">
+        <div class="avatar" id="nav-avatar">A</div>
+        <span id="nav-username"></span>
+      </span>
+      <a href="/auth.html" class="nav-btn login-btn" id="nav-auth">Login</a>
+    </div>
+  </div>
+</nav>
+
+<div style="min-height:calc(100vh - 60px);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;background:var(--bg)">
+  <div class="form-card" style="width:100%;max-width:560px">
+    <h2>Submit a Link</h2>
+    <p>Your link will be reviewed by a moderator before going live.</p>
+
+    <form id="submit-form">
+      <div class="form-group">
+        <label>Title <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="title" required placeholder="e.g. Best Figma UI Kit 2025" maxlength="255"/>
+      </div>
+      <div class="form-group">
+        <label>URL <span style="color:var(--danger)">*</span></label>
+        <input type="url" id="url" required placeholder="https://example.com"/>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="description" placeholder="What makes this link great? (optional)" maxlength="1000"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="category"><option value="">— Select a category —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Tags <span style="color:var(--muted);font-weight:400">(comma-separated, up to 5)</span></label>
+        <input type="text" id="tags" placeholder="e.g. free, beginner, design"/>
+      </div>
+      <button type="submit" class="btn-primary" id="submit-btn">Submit for Review</button>
+      <p class="form-msg" id="submit-msg"></p>
+    </form>
+  </div>
+</div>
+
+<script>
+  const t = localStorage.getItem('lv_theme')||'light';
+  document.documentElement.setAttribute('data-theme', t);
+  const tb = document.getElementById('theme-toggle');
+  tb.textContent = t==='dark'?'☀️':'🌙';
+  tb.onclick = () => { const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('lv_theme',n); tb.textContent=n==='dark'?'☀️':'🌙'; };
+
+  const token = localStorage.getItem('lv_token');
+  const user  = JSON.parse(localStorage.getItem('lv_user')||'null');
+  if (!token) { window.location.href='/auth.html'; }
+
+  if (user) {
+    document.getElementById('nav-user').style.display='flex';
+    document.getElementById('nav-auth').style.display='none';
+    document.getElementById('nav-avatar').textContent = user.username[0].toUpperCase();
+    document.getElementById('nav-username').textContent = user.username;
+  }
+
+  // Load categories
+  fetch('/api/categories').then(r=>r.json()).then(cats => {
+    const arr = Array.isArray(cats) ? cats : (cats.value||[]);
+    const sel = document.getElementById('category');
+    arr.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id; o.textContent = c.name;
+      sel.appendChild(o);
+    });
+  });
+
+  document.getElementById('submit-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const msg = document.getElementById('submit-msg');
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    msg.textContent = ''; msg.className = 'form-msg';
+
+    const tagsRaw = document.getElementById('tags').value;
+    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean).slice(0,5) : [];
+
+    try {
+      const res = await fetch('/api/links',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({title:document.getElementById('title').value,url:document.getElementById('url').value,description:document.getElementById('description').value,category_id:document.getElementById('category').value||null,tags})});
+      const data = await res.json();
+      if (!res.ok){msg.textContent=data.error;msg.className='form-msg error';}
+      else{msg.textContent='✅ Link submitted! It will appear after review.';msg.className='form-msg success';e.target.reset();}
+    } catch{msg.textContent='Network error';msg.className='form-msg error';}
+    finally{btn.disabled=false;btn.textContent='Submit for Review';}
+  });
+</script>
+</body>
+</html>
