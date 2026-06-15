@@ -3,6 +3,9 @@ const express = require('express');
 const http    = require('http');
 const cors    = require('cors');
 const path    = require('path');
+const helmet  = require('helmet');
+const compression = require('compression');
+const morgan  = require('morgan');
 
 const socketConfig     = require('./config/socket');
 const { testConnection } = require('./config/db');
@@ -18,9 +21,22 @@ const httpServer = http.createServer(app);
 // Init Socket.io
 socketConfig.init(httpServer);
 
-// Middleware
+// ── Security & Optimization Middleware ────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "img-src": ["'self'", "data:", "https://www.google.com"],
+      "script-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      "font-src": ["'self'", "https://fonts.gstatic.com"],
+    },
+  },
+}));
+app.use(compression());
 app.use(cors());
 app.use(express.json());
+app.use(morgan('dev')); // Professional request logging
 
 // Serve static frontend
 app.use(express.static(path.join(__dirname, '..', 'client')));
