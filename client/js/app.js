@@ -13,6 +13,14 @@ const getUser  = () => JSON.parse(localStorage.getItem('lv_user') || 'null');
 const authHdr  = () => getToken() ? { Authorization: `Bearer ${getToken()}` } : {};
 const esc = s => s == null ? '' : String(s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+const highlightSearch = (text, query) => {
+  if (!query) return esc(text);
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  return esc(text).replace(regex, '<mark class="search-highlight">$1</mark>');
+};
+
 const CAT_ICONS = {
   'figma-templates':'🎨','ai-prompts':'🤖','free-dev-tools':'🛠️',
   'ui-ux-resources':'✏️','learning':'📚','free-apis':'🔌',
@@ -262,8 +270,12 @@ function renderCard(link, index) {
   const rank    = (currentPage - 1) * 20 + index + 1;
   const score   = link.vote_score ?? 0;
   const isNew   = (Date.now() - new Date(link.created_at)) < 3 * 24 * 60 * 60 * 1000;
+
+  const title = highlightSearch(link.title, currentSearch);
+  const desc  = highlightSearch(link.description || '', currentSearch);
+
   return `
-  <div class="link-card" data-link-id="${link.id}">
+  <div class="link-card animate-up" data-link-id="${link.id}" style="animation-delay: ${index * 0.04}s">
     <div class="rank-col"><span class="rank-num">${rank}</span></div>
     <div class="vote-col">
       <button class="vote-btn" data-id="${link.id}" data-type="up" aria-label="Upvote">▲</button>
@@ -273,25 +285,45 @@ function renderCard(link, index) {
     <div class="link-body">
       <div class="link-title">
         <img src="${favicon}" width="14" height="14" alt="" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'">
-        <a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.title)}</a>
+        <a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${title}</a>
         ${isNew ? '<span class="new-badge">New</span>' : ''}
         <span class="link-domain">${esc(domain)}</span>
       </div>
-      ${link.description ? `<p class="link-desc">${esc(link.description)}</p>` : ''}
+      ${link.description ? `<p class="link-desc">${desc}</p>` : ''}
       <div class="link-meta">
         ${link.category_name ? `<button class="meta-cat" data-slug="${esc(catSlug)}">${catIcon} ${esc(link.category_name)}</button>` : ''}
         <span class="meta-date">🕒 ${new Date(link.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
         ${tags.length ? `<div class="tag-row">${tags.slice(0,4).map(t=>`<button class="tag-pill inline-tag" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
       </div>
     </div>
+    <div class="link-actions">
+      <button class="action-btn copy-btn" data-url="${esc(link.url)}" title="Copy Link">📋</button>
+      <button class="action-btn share-btn" data-title="${esc(link.title)}" data-url="${esc(link.url)}" title="Share">🔗</button>
+    </div>
   </div>`;
+}
+
+function renderSkeleton() {
+  let html = '';
+  for (let i = 0; i < 6; i++) {
+    html += `
+    <div class="skeleton-card">
+      <div class="skeleton-vote skeleton"></div>
+      <div class="skeleton-body">
+        <div class="skeleton-title skeleton"></div>
+        <div class="skeleton-desc skeleton"></div>
+        <div class="skeleton-meta skeleton"></div>
+      </div>
+    </div>`;
+  }
+  return html;
 }
 
 // ── Load links ────────────────────────────────────────────────────────────
 async function loadLinks(page = 1) {
   currentPage = page;
   const container = document.getElementById('links-container');
-  container.innerHTML = '<div class="loading-state"><div class="spinner"></div><span>Loading curated links…</span></div>';
+  container.innerHTML = renderSkeleton();
   if (isGridView) container.classList.add('grid-view');
 
   const params = new URLSearchParams({ page, limit: 20, sort: currentSort });
@@ -318,10 +350,33 @@ async function loadLinks(page = 1) {
     if (isGridView) container.classList.add('grid-view');
     attachVoteListeners();
     attachInlineListeners();
+    attachActionListeners();
     renderPagination(total, page, 20);
   } catch (err) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Failed to load</h3><p>${esc(err.message)}</p><button class="btn-clear" onclick="loadLinks(1)">Retry</button></div>`;
   }
+}
+
+// ── Action listeners ──────────────────────────────────────────────────────
+function attachActionListeners() {
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const url = btn.dataset.url;
+      navigator.clipboard.writeText(url).then(() => showToast('Link copied to clipboard!'));
+    });
+  });
+  document.querySelectorAll('.share-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const { title, url } = btn.dataset;
+      if (navigator.share) {
+        navigator.share({ title, url }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(url).then(() => showToast('Link copied! (Share API not supported)'));
+      }
+    });
+  });
 }
 
 // ── Inline listeners ──────────────────────────────────────────────────────
@@ -395,12 +450,12 @@ function attachVoteListeners() {
   });
 }
 async function handleVote(linkId, type) {
-  if (!getToken()) { showToast('Please login to vote'); setTimeout(() => window.location.href='/auth.html', 1200); return; }
+  if (!getToken()) { showToast('Please login to vote', 3000, true); setTimeout(() => window.location.href='/auth.html', 1200); return; }
   try {
     const res = await fetch(`${API}/links/${linkId}/vote`, { method:'POST', headers:{'Content-Type':'application/json',...authHdr()}, body: JSON.stringify({ type }) });
     const data = await res.json();
-    if (!res.ok) showToast(data.error || 'Vote failed');
-  } catch { showToast('Vote failed'); }
+    if (!res.ok) showToast(data.error || 'Vote failed', 3000, true);
+  } catch { showToast('Vote failed', 3000, true); }
 }
 
 // ── Sort ──────────────────────────────────────────────────────────────────
@@ -422,9 +477,11 @@ document.getElementById('q')?.addEventListener('keydown', e => { if (e.key==='En
 document.getElementById('q-mobile')?.addEventListener('keydown', e => { if (e.key==='Enter') { doSearch(document.getElementById('q-mobile').value); if (document.getElementById('q')) document.getElementById('q').value = document.getElementById('q-mobile').value; } });
 
 // ── Toast ─────────────────────────────────────────────────────────────────
-function showToast(msg, ms = 2800) {
+function showToast(msg, ms = 2800, isError = false) {
   const el = document.getElementById('toast'); if (!el) return;
-  el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), ms);
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show'); setTimeout(() => el.classList.remove('show'), ms);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
