@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: linkvault
+    env: node
+    buildCommand: npm install
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: NODE_ENV
+        value: production
