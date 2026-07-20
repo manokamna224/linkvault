@@ -6,10 +6,10 @@ const Database = require('better-sqlite3');
 const path     = require('path');
 const fs       = require('fs');
 
-// Railway volumes mount at /data; fallback to local data/ for dev
+// Railway volume → /data, Render/others → local data/ folder
 const DB_DIR  = process.env.RAILWAY_VOLUME_MOUNT_PATH
-  ? process.env.RAILWAY_VOLUME_MOUNT_PATH
-  : path.join(__dirname, '..', '..', 'data');
+  || process.env.RENDER_DISK_MOUNT_PATH
+  || path.join(__dirname, '..', '..', 'data');
 const DB_PATH = path.join(DB_DIR, 'linkvault.db');
 
 if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
